@@ -80,5 +80,9 @@ def index():
     )
 
 
+# Точка входа при запуске напрямую
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Получаем порт из переменной окружения
+    port = int(os.environ.get('PORT', 5000))
+    # Запускаем сервер: host='0.0.0.0' — чтобы приложение было доступно извне
+    app.run(host='0.0.0.0', port=port, debug=False)
