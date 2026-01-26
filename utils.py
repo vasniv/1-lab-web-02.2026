@@ -1,122 +1,91 @@
+"""
+Вспомогательные функции для обработки изображений
+и построения гистограмм распределения цветов.
+"""
+
 import numpy as np
 from PIL import Image
 import matplotlib
 
-matplotlib.use('Agg')
+matplotlib.use('Agg')  # Использование бэкенда без графического интерфейса
 import matplotlib.pyplot as plt
 
 
-def apply_periodic_function(input_path, output_path, function_type='sin',
-                            period=50.0, direction='horizontal'):
+def apply_periodic_function(input_path, output_path, function_type='sin', period=50.0, direction='horizontal'):
     """
-    Умножает изображение на периодическую функцию sin или cos с нормировкой.
+    Применяет периодическую функцию (sin/cos) к изображению.
 
-    Аргумент функции определяется:
-    - 'horizontal': аргумент = горизонтальная координата (x)
-    - 'vertical': аргумент = вертикальная координата (y)
+    Алгоритм:
+    1. Загружает изображение и нормализует значения пикселей в диапазон [0, 1]
+    2. Создаёт маску на основе выбранной функции
+    3. Умножает каждый канал изображения на маску
+    4. Сохраняет результат
+
+    Формула: I_new = I_original * (f(2π * coord / period) + 1) / 2
+    где f - sin или cos, coord - x или y в зависимости от направления.
     """
-    # Открываем и нормализуем изображение
+    # Загрузка и нормализация изображения
     img = Image.open(input_path).convert('RGB')
     img_array = np.array(img, dtype=np.float32) / 255.0
-
     h, w, _ = img_array.shape
 
-    # Выбираем функцию
-    if function_type == 'sin':
-        func = np.sin
-    else:  # 'cos'
-        func = np.cos
+    # Выбор периодической функции
+    func = np.sin if function_type == 'sin' else np.cos
 
-    # Создаем маску в зависимости от направления
+    # Создание маски в зависимости от направления
     if direction == 'horizontal':
-        # Аргумент зависит от x (горизонтальная составляющая)
+        # Горизонтальное направление: функция зависит от координаты x
         x = np.arange(w)
-        # Нормированная периодическая функция: (sin(2πx/period) + 1) / 2
-        # Дает значения от 0 до 1
         arg = 2 * np.pi * x / period
-        mask_1d = (func(arg) + 1) / 2  # Нормировка к [0, 1]
-        # Превращаем в 2D маску (одинаковая для всех строк)
-        mask = np.tile(mask_1d, (h, 1))
-
-    else:  # 'vertical'
-        # Аргумент зависит от y (вертикальная составляющая)
+        mask_1d = (func(arg) + 1) / 2  # Нормировка из [-1, 1] в [0, 1]
+        mask = np.tile(mask_1d, (h, 1))  # Расширение маски на всю высоту
+    else:  # vertical
+        # Вертикальное направление: функция зависит от координаты y
         y = np.arange(h)
         arg = 2 * np.pi * y / period
         mask_1d = (func(arg) + 1) / 2
-        # Превращаем в 2D маску (одинаковая для всех столбцов)
-        mask = np.tile(mask_1d.reshape(-1, 1), (1, w))
+        mask = np.tile(mask_1d.reshape(-1, 1), (1, w))  # Расширение маски на всю ширину
 
-    # Умножаем каждый цветовой канал на маску
-    for c in range(3):  # R, G, B каналы
+    # Применение маски к каждому цветовому каналу
+    for c in range(3):
         img_array[:, :, c] = img_array[:, :, c] * mask
 
-    # Возвращаем к диапазону 0-255 и сохраняем
-    result_array = (np.clip(img_array, 0, 1) * 255).astype(np.uint8)
-    result_img = Image.fromarray(result_array)
-    result_img.save(output_path)
+    # Денормализация и сохранение результата
+    result = (np.clip(img_array, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(result).save(output_path)
 
 
-def plot_histograms(orig_path, proc_path, hist_orig_path, hist_proc_path):
+def plot_histogram(image_path, output_path, title):
     """
-    Рисует графики распределения цветов для исходного и нового изображений.
+    Строит гистограмму распределения цветов для изображения.
+
+    Отображает распределение значений пикселей
+    для каждого цветового канала (R, G, B).
     """
+    # Загрузка изображения
+    img = np.array(Image.open(image_path).convert('RGB'))
 
-    def get_channel_data(img_path):
-        """Извлекает данные по каналам R, G, B."""
-        img = np.array(Image.open(img_path).convert('RGB'))
-        r = img[:, :, 0].flatten()
-        g = img[:, :, 1].flatten()
-        b = img[:, :, 2].flatten()
-        return r, g, b
+    # Извлечение значений каждого канала
+    r = img[:, :, 0].flatten()
+    g = img[:, :, 1].flatten()
+    b = img[:, :, 2].flatten()
 
-    # Гистограмма для исходного изображения
-    plt.figure(figsize=(10, 4))
+    # Создание графика
+    plt.figure(figsize=(6, 3))
 
-    r, g, b = get_channel_data(orig_path)
-    plt.subplot(1, 2, 1)
-    plt.hist(r, bins=50, color='red', alpha=0.7, label='R', density=True)
-    plt.hist(g, bins=50, color='green', alpha=0.7, label='G', density=True)
-    plt.hist(b, bins=50, color='blue', alpha=0.7, label='B', density=True)
-    plt.title('Исходное изображение')
+    # Построение гистограмм для каждого канала с разными цветами
+    plt.hist(r, bins=64, alpha=0.6, label='R', color='red', density=True)
+    plt.hist(g, bins=64, alpha=0.6, label='G', color='green', density=True)
+    plt.hist(b, bins=64, alpha=0.6, label='B', color='blue', density=True)
+
+    # Настройка графика
+    plt.title(title)
     plt.xlabel('Интенсивность')
-    plt.ylabel('Частота')
+    plt.ylabel('Плотность')
     plt.legend()
-    plt.grid(True, alpha=0.3)
-
-    # Гистограмма для обработанного изображения
-    r, g, b = get_channel_data(proc_path)
-    plt.subplot(1, 2, 2)
-    plt.hist(r, bins=50, color='red', alpha=0.7, label='R', density=True)
-    plt.hist(g, bins=50, color='green', alpha=0.7, label='G', density=True)
-    plt.hist(b, bins=50, color='blue', alpha=0.7, label='B', density=True)
-    plt.title('Обработанное изображение')
-    plt.xlabel('Интенсивность')
-    plt.ylabel('Частота')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-
+    plt.grid(alpha=0.3)
     plt.tight_layout()
-    plt.savefig(hist_orig_path, dpi=100)
-    plt.close()
 
-    # Простая гистограмма для сравнения
-    plt.figure(figsize=(8, 4))
-
-    r_orig, g_orig, b_orig = get_channel_data(orig_path)
-    r_proc, g_proc, b_proc = get_channel_data(proc_path)
-
-    # Объединяем все каналы для общего сравнения
-    all_orig = np.concatenate([r_orig, g_orig, b_orig])
-    all_proc = np.concatenate([r_proc, g_proc, b_proc])
-
-    plt.hist(all_orig, bins=50, color='blue', alpha=0.5, label='Исходное', density=True)
-    plt.hist(all_proc, bins=50, color='red', alpha=0.5, label='Обработанное', density=True)
-    plt.title('Сравнение распределений цветов')
-    plt.xlabel('Интенсивность')
-    plt.ylabel('Частота')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-
-    plt.tight_layout()
-    plt.savefig(hist_proc_path, dpi=100)
+    # Сохранение гистограммы
+    plt.savefig(output_path, dpi=100)
     plt.close()
