@@ -11,6 +11,7 @@ from wtforms import SelectField, FloatField, SubmitField, FileField, BooleanFiel
 from wtforms.validators import DataRequired, NumberRange
 from werkzeug.utils import secure_filename
 import os
+from datetime import datetime  # Добавляем импорт для времени
 from utils import apply_periodic_function, plot_histogram
 
 # Инициализация приложения Flask
@@ -39,7 +40,7 @@ class ImageForm(FlaskForm):
                                 ('vertical', 'Вертикальная (y)')
                             ],
                             validators=[DataRequired()])
-    add_timestamp = BooleanField('Добавить временную метку на изображение')
+    add_timestamp = BooleanField('Показать время создания')  # Изменили текст
     recaptcha = RecaptchaField()
     submit = SubmitField('Обработать изображение')
 
@@ -49,6 +50,7 @@ def index():
     """Главная страница приложения"""
     form = ImageForm()
     original = processed = hist_orig = hist_proc = None
+    processing_time = None  # Переменная для хранения времени обработки
 
     if form.validate_on_submit():
         file = request.files['image']
@@ -66,16 +68,21 @@ def index():
                 processed_filename = f'processed_{filename}'
                 processed_path = os.path.join(app.config['UPLOAD_FOLDER'], processed_filename)
 
+                # Применяем функцию к изображению (без временной метки на самом изображении)
                 apply_periodic_function(
                     filepath,
                     processed_path,
                     function_type=form.function_type.data,
                     period=form.period.data,
                     direction=form.direction.data,
-                    add_timestamp=form.add_timestamp.data
+                    add_timestamp=False  # Всегда False, т.к. метку добавляем отдельно
                 )
 
                 processed = f'uploaded/{processed_filename}'
+
+                # Сохраняем время обработки, если галочка отмечена
+                if form.add_timestamp.data:
+                    processing_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 base_name = os.path.splitext(filename)[0]
                 hist_orig_path = os.path.join(app.config['UPLOAD_FOLDER'], f'hist_orig_{base_name}.png')
@@ -95,7 +102,8 @@ def index():
         original=original,
         processed=processed,
         hist_orig=hist_orig,
-        hist_proc=hist_proc
+        hist_proc=hist_proc,
+        processing_time=processing_time  # Передаем время в шаблон
     )
 
 

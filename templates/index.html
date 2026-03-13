@@ -46,6 +46,17 @@
     .result-block {
         margin-bottom: 30px;
     }
+
+    /* Стиль для временной метки */
+    .timestamp-badge {
+        background-color: #e9ecef;
+        border-left: 4px solid #007bff;
+        padding: 10px 15px;
+        margin-bottom: 20px;
+        border-radius: 0.25rem;
+        font-family: monospace;
+        font-size: 1.1em;
+    }
 </style>
 {% endblock %}
 
@@ -75,6 +86,13 @@
     {% if original %}
     <div class="mt-5">
         <h3>Результаты обработки</h3>
+
+        {# Временная метка - появляется только если галочка отмечена #}
+        {% if processing_time %}
+        <div class="timestamp-badge">
+            <strong>🕒 Время создания:</strong> {{ processing_time }}
+        </div>
+        {% endif %}
 
         <div class="row mb-4">
             <div class="col-md-6 result-block">
